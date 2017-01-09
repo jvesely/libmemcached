@@ -87,13 +87,6 @@ AC_DEFUN([_SET_SANITIZE_FLAGS],
                 ])
           ])
 
-AC_DEFUN([_WARNINGS_AS_ERRORS],
-    [AC_CACHE_CHECK([if all warnings into errors],[ac_cv_warnings_as_errors],
-      [AS_IF([test "x$ac_cv_vcs_checkout" = xyes],[ac_cv_warnings_as_errors=yes],
-        [ac_cv_warnings_as_errors=no])
-      ])
-    ])
-
 # Note: Should this be LIBS or LDFLAGS?
 AC_DEFUN([_APPEND_LINK_FLAGS_ERROR],
          [AX_APPEND_LINK_FLAGS([$1],[LDFLAGS],[-Werror])
@@ -108,7 +101,6 @@ AC_DEFUN([_APPEND_COMPILE_FLAGS_ERROR],
 AC_DEFUN([_HARDEN_LINKER_FLAGS],
         [AS_IF([test "$CC" != "clang"],
           [_APPEND_LINK_FLAGS_ERROR([-z relro -z now])
-          AS_IF([test "x$ac_cv_warnings_as_errors" = xyes],[AX_APPEND_LINK_FLAGS([-Werror])])
           AS_IF([test "x$ac_cv_vcs_checkout" = xyes],
           [_APPEND_LINK_FLAGS_ERROR([-rdynamic])
 #         AX_APPEND_LINK_FLAGS([--coverage])])
@@ -233,9 +225,6 @@ AC_DEFUN([_HARDEN_CC_COMPILER_FLAGS],
                   _APPEND_COMPILE_FLAGS_ERROR([-fstack-protector-all])
                   ])])])])
 
-         AS_IF([test "x$ac_cv_warnings_as_errors" = xyes],
-             [AX_APPEND_FLAG([-Werror])])
-
           AC_LANG_POP([C])
   ])
 
@@ -338,8 +327,6 @@ AC_DEFUN([_HARDEN_CXX_COMPILER_FLAGS],
 
           _SET_SANITIZE_FLAGS
 
-          AS_IF([test "x$ac_cv_warnings_as_errors" = xyes],
-                [AX_APPEND_FLAG([-Werror])])
           AC_LANG_POP([C++])
   ])
 
