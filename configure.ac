@@ -327,6 +327,12 @@ AC_DEFUN([__ENABLE_SHARED],
                [AC_DEFINE([HAVE_SHARED_ENABLED],[1],[Enable code which requires shared library support. Like backtrace().])])])
 AM_CONDITIONAL([SHARED_ENABLED],[test "x$enable_shared" = "xyes"])
 
+# enable man-pages
+AC_ARG_ENABLE(manpages, [AC_HELP_STRING([--enable-manpages],
+	[build manual pages using sphinx @<:@default=auto@:>@])],
+	[build_manpages="$enableval"], [build_manpages="$ac_cv_vcs_checkout"])
+AM_CONDITIONAL([build_manpages],[test "x$build_manpages" = "xyes"])
+
 PANDORA_ENABLE_DTRACE
 HAVE_GCC_ATOMICS
 AX_ENDIAN
@@ -358,6 +364,7 @@ echo "   * LIB Flags:                 $LIB"
 echo "   * Assertions enabled:        $ax_enable_assert"
 echo "   * Debug enabled:             $ax_enable_debug"
 echo "   * Shared:                    $enable_shared"
+echo "   * Build manpages:            $build_manpages"
 echo "   * Warnings as failure:       $ac_cv_warnings_as_errors"
 echo "   * SASL support:              $ac_enable_sasl"
 echo "   * make -j:                   $enable_jobserver"

@@ -26,7 +26,7 @@ EXTRA_DIST=
 dist_man_MANS=
 MAINTAINERCLEANFILES=
 
-if IS_VCS_CHECKOUT
+if build_manpages
 SUBDIRS= docs
 endif
 
@@ -57,7 +57,9 @@ include libmemcachedutil-1.2/include.am
 
 include clients/include.am
 
+if build_manpages
 include man/include.am
+endif
 include libhashkit/include.am
 include libmemcached/include.am
 include libmemcachedutil/include.am
