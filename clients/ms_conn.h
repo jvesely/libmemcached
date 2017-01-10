@@ -126,7 +126,7 @@ typedef struct conn
   short which;              /* which events were just triggered */
   bool change_sfd;          /* whether change sfd */
 
-  int *tcpsfd;              /* TCP sock array */
+  int *sfd_array;                /* TCP sock array */
   uint32_t total_sfds;           /* how many socks in the tcpsfd array */
   uint32_t alive_sfds;           /* alive socks */
   uint32_t cur_idx;              /* current sock index in tcpsfd array */
@@ -163,7 +163,7 @@ typedef struct conn
   uint32_t request_id;                   /* UDP request ID of current operation, if this is a UDP "connection" */
   uint8_t *hdrbuf;                  /* udp packet headers */
   int hdrsize;                      /* number of headers' worth of space is allocated */
-  struct  sockaddr srv_recv_addr;   /* Sent the most recent request to which server */
+  struct  sockaddr *srv_recv_addr;   /* Sent the most recent request to which server */
   socklen_t srv_recv_addr_size;
 
   /* udp read buffer */

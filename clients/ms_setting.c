@@ -958,7 +958,7 @@ static void ms_setting_slapmode_init_post()
   if (ms_setting.rep_write_srv > 0)
   {
     /* for replication test, need enable reconnect feature */
-    ms_setting.reconnect= true;
+    ms_setting.reconnect= !ms_setting.udp;
   }
 
   if (ms_setting.facebook_test && (ms_setting.mult_key_num < 2))
@@ -993,12 +993,6 @@ static void ms_setting_slapmode_init_post()
   {
     fprintf(stderr, "Servers to do replication writing "
                     "is larger than the total servers\n");
-    exit(1);
-  }
-
-  if (ms_setting.udp && (ms_setting.rep_write_srv > 0))
-  {
-    fprintf(stderr, "UDP doesn't support replication.\n");
     exit(1);
   }
 

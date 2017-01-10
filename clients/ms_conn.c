@@ -246,6 +246,7 @@ static int ms_conn_udp_init(ms_conn_t *c, const bool is_udp)
   {
     c->rudpbuf= (char *)malloc((size_t)c->rudpsize);
     c->udppkt= (ms_udppkt_t *)malloc(MAX_UDP_PACKET * sizeof(ms_udppkt_t));
+    c->srv_recv_addr = malloc(c->total_sfds * sizeof(struct sockaddr));
 
     if ((c->rudpbuf == NULL) || (c->udppkt == NULL))
     {
@@ -311,10 +312,10 @@ static int ms_conn_init(ms_conn_t *c,
                               malloc(
       sizeof(ms_mlget_task_item_t) * (size_t)ms_setting.mult_key_num);
   }
-  c->tcpsfd= (int *)malloc((size_t)c->total_sfds * sizeof(int));
+  c->sfd_array= (int *)malloc((size_t)c->total_sfds * sizeof(int));
 
   if ((c->rbuf == NULL) || (c->wbuf == NULL) || (c->iov == NULL)
-      || (c->msglist == NULL) || (c->tcpsfd == NULL)
+      || (c->msglist == NULL) || (c->sfd_array == NULL)
       || ((ms_setting.mult_key_num > 1)
           && (c->mlget_task.mlget_item == NULL)))
   {
@@ -328,8 +329,8 @@ static int ms_conn_init(ms_conn_t *c,
       free(c->msglist);
     if (c->mlget_task.mlget_item != NULL)
       free(c->mlget_task.mlget_item);
-    if (c->tcpsfd != NULL)
-      free(c->tcpsfd);
+    if (c->sfd_array != NULL)
+      free(c->sfd_array);
     fprintf(stderr, "malloc()\n");
     return -1;
   }
@@ -478,7 +479,7 @@ static int ms_conn_sock_init(ms_conn_t *c)
   uint32_t srv_idx= 0;
 
   assert(c != NULL);
-  assert(c->tcpsfd != NULL);
+  assert(c->sfd_array != NULL);
 
   for (i= 0; i < c->total_sfds; i++)
   {
@@ -506,10 +507,7 @@ static int ms_conn_sock_init(ms_conn_t *c)
       c->sfd= ret_sfd;
     }
 
-    if (! ms_setting.udp)
-    {
-      c->tcpsfd[i]= ret_sfd;
-    }
+    c->sfd_array[i]= ret_sfd;
 
     c->alive_sfds++;
   }
@@ -540,7 +538,7 @@ static int ms_conn_sock_init(ms_conn_t *c)
     {
       for (uint32_t j= 0; j < i; j++)
       {
-        close(c->tcpsfd[j]);
+        close(c->sfd_array[j]);
       }
     }
 
@@ -644,8 +642,8 @@ void ms_conn_free(ms_conn_t *c)
       free(c->udppkt);
     if (c->item_win != NULL)
       free(c->item_win);
-    if (c->tcpsfd != NULL)
-      free(c->tcpsfd);
+    if (c->sfd_array != NULL)
+      free(c->sfd_array);
 
     if (--ms_thread->nactive_conn == 0)
     {
@@ -670,9 +668,9 @@ static void ms_conn_close(ms_conn_t *c)
 
   for (uint32_t i= 0; i < c->total_sfds; i++)
   {
-    if (c->tcpsfd[i] > 0)
+    if (c->sfd_array[i] > 0)
     {
-      close(c->tcpsfd[i]);
+      close(c->sfd_array[i]);
     }
   }
   c->sfd= 0;
@@ -853,7 +851,8 @@ static int ms_network_connect(ms_conn_t *c,
     if (is_udp)
     {
       c->srv_recv_addr_size= sizeof(struct sockaddr);
-      memcpy(&c->srv_recv_addr, next->ai_addr, c->srv_recv_addr_size);
+      // This is an ugly hack to support multiple UDP sockets per ms_conn
+      memcpy(&c->srv_recv_addr[c->alive_sfds], next->ai_addr, c->srv_recv_addr_size);
     }
     else
     {
@@ -915,7 +914,7 @@ static int ms_reconn(ms_conn_t *c)
 
   /* close the old socket handler */
   close(c->sfd);
-  c->tcpsfd[c->cur_idx]= 0;
+  c->sfd_array[c->cur_idx]= 0;
 
   if (atomic_add_32_nv(&ms_setting.servers[srv_idx].disconn_cnt, 1)
       % srv_conn_cnt == 0)
@@ -932,7 +931,7 @@ static int ms_reconn(ms_conn_t *c)
 
     for (i= 0; i < c->total_sfds; i++)
     {
-      if (c->tcpsfd[i] != 0)
+      if (c->sfd_array[i] != 0)
       {
         break;
       }
@@ -953,7 +952,7 @@ static int ms_reconn(ms_conn_t *c)
                              ms_setting.servers[srv_idx].srv_port,
                              ms_setting.udp, &c->sfd) == 0)
       {
-        c->tcpsfd[c->cur_idx]= c->sfd;
+        c->sfd_array[c->cur_idx]= c->sfd;
         if (atomic_add_32_nv(&ms_setting.servers[srv_idx].reconn_cnt, 1)
             % (uint32_t)srv_conn_cnt == 0)
         {
@@ -978,7 +977,7 @@ static int ms_reconn(ms_conn_t *c)
     while (ms_setting.rep_write_srv == 0 && c->total_sfds > 0);
   }
 
-  if ((c->total_sfds > 1) && (c->tcpsfd[c->cur_idx] == 0))
+  if ((c->total_sfds > 1) && (c->sfd_array[c->cur_idx] == 0))
   {
     c->sfd= 0;
     c->alive_sfds--;
@@ -1015,7 +1014,7 @@ int ms_reconn_socks(ms_conn_t *c)
 
   for (uint32_t i= 0; i < c->total_sfds; i++)
   {
-    if (c->tcpsfd[i] == 0)
+    if (c->sfd_array[i] == 0)
     {
       gettimeofday(&cur_time, NULL);
 
@@ -1046,7 +1045,7 @@ int ms_reconn_socks(ms_conn_t *c)
                              ms_setting.servers[srv_idx].srv_port,
                              ms_setting.udp, &ret_sfd) == 0)
       {
-        c->tcpsfd[i]= ret_sfd;
+        c->sfd_array[i]= ret_sfd;
         c->alive_sfds++;
 
         if (atomic_add_32_nv(&ms_setting.servers[srv_idx].reconn_cnt, 1)
@@ -2050,7 +2049,7 @@ static int ms_add_msghdr(ms_conn_t *c)
 
   if (c->udp && (c->srv_recv_addr_size > 0))
   {
-    msg->msg_name= &c->srv_recv_addr;
+    msg->msg_name= &c->srv_recv_addr[c->cur_idx];
     msg->msg_namelen= c->srv_recv_addr_size;
   }
 
@@ -2419,7 +2418,8 @@ static bool ms_update_event(ms_conn_t *c, const int new_flags)
   assert(c != NULL);
 
   struct event_base *base= c->event.ev_base;
-  if ((c->ev_flags == new_flags) && (ms_setting.rep_write_srv == 0)
+  if ((c->ev_flags == new_flags)
+      && ( (ms_setting.rep_write_srv == 0))
       && (! ms_setting.facebook_test || (c->total_sfds == 1)))
   {
     return true;
@@ -2772,7 +2772,7 @@ static uint32_t ms_get_rep_sock_index(ms_conn_t *c, int cmd)
     {
       for (i= 0; i < ms_setting.rep_write_srv; i++)
       {
-        if (c->tcpsfd[i] > 0)
+        if (c->sfd_array[i] > 0)
         {
           break;
         }
@@ -2792,10 +2792,10 @@ static uint32_t ms_get_rep_sock_index(ms_conn_t *c, int cmd)
     else if (cmd == CMD_GET)
     {
       /* random get one replication server to read */
-      sock_index= (uint32_t)random() % c->total_sfds;
+      sock_index= ((uint32_t)random() % (c->total_sfds - ms_setting.rep_write_srv)) + ms_setting.rep_write_srv;
     }
   }
-  while (c->tcpsfd[sock_index] == 0);
+  while (c->sfd_array[sock_index] == 0);
 
   return sock_index;
 } /* ms_get_rep_sock_index */
@@ -2816,7 +2816,7 @@ static uint32_t ms_get_next_sock_index(ms_conn_t *c)
   {
     sock_index= (++c->cur_idx == c->total_sfds) ? 0 : c->cur_idx;
   }
-  while (c->tcpsfd[sock_index] == 0);
+  while (c->sfd_array[sock_index] == 0);
 
   return sock_index;
 } /* ms_get_next_sock_index */
@@ -2838,7 +2838,7 @@ static int ms_update_conn_sock_event(ms_conn_t *c)
   case CMD_SET:
     if (ms_setting.facebook_test && c->udp)
     {
-      c->sfd= c->tcpsfd[0];
+      c->sfd= c->sfd_array[0];
       c->udp= false;
       c->change_sfd= true;
     }
@@ -2857,7 +2857,7 @@ static int ms_update_conn_sock_event(ms_conn_t *c)
     break;
   } /* switch */
 
-  if (! c->udp && (c->total_sfds > 1))
+  if ( (c->total_sfds > 1))
   {
     if (c->cur_idx != c->total_sfds)
     {
@@ -2876,7 +2876,7 @@ static int ms_update_conn_sock_event(ms_conn_t *c)
       c->cur_idx= 0;
     }
 
-    c->sfd= c->tcpsfd[c->cur_idx];
+    c->sfd= c->sfd_array[c->cur_idx];
     assert(c->sfd != 0);
     c->change_sfd= true;
   }
