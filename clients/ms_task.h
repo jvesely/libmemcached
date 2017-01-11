@@ -22,7 +22,7 @@
 extern "C" {
 #endif
 
-#define UNIT_ITEMS_COUNT     1024               /* each window unit has 1024 items */
+#define UNIT_ITEMS_COUNT     128               /* each window unit has 1024 items */
 #define KEY_PREFIX_SIZE      (sizeof(uint64_t)) /* key prefix length: 8 bytes */
 #define INVALID_OFFSET       (-1)               /* invalid offset in the character table */
 #define FIXED_EXPIRE_TIME    60                 /* default expire time is 60s */

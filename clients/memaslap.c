@@ -375,18 +375,16 @@ static int64_t ms_parse_time()
 static int64_t ms_parse_size()
 {
   int64_t ret= -1;
-  char unit= optarg[strlen(optarg) - 1];
-
-  optarg[strlen(optarg) - 1]= '\0';
   errno= 0;
-  ret= strtoll(optarg, (char **)NULL, 10);
+  char *unit;
+  ret= strtoll(optarg, &unit, 10);
   if (errno != 0)
   {
     fprintf(stderr, "strtoll(optarg,..): %s\n", strerror(errno));
     exit(1);
   }
 
-  switch (unit)
+  switch (*unit)
   {
   case 'k':
   case 'K':
@@ -404,7 +402,8 @@ static int64_t ms_parse_size()
     break;
 
   default:
-    ret= -1;
+    ret = -1;
+  case '\0':
     break;
   } /* switch */
 
@@ -664,7 +663,8 @@ static int ms_check_para()
 
   if (ms_setting.win_size % UNIT_ITEMS_COUNT != 0)
   {
-    fprintf(stderr, "Window size must be the multiples of 1024.\n\n");
+    fprintf(stderr, "Window size (%zu) must be the multiples of %u.\n\n",
+            ms_setting.win_size, UNIT_ITEMS_COUNT);
     return -1;
   }
 

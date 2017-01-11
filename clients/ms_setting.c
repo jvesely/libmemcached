@@ -40,7 +40,7 @@
 #define DEFAULT_OVERWRITE_RATE     0.0                     /* default it doesn't do overwrite */
 #define DEFAULT_DIV                1                       /* default it runs single get */
 #define DEFAULT_RUN_TIME           600                     /* default run time 10 minutes */
-#define DEFAULT_WINDOW_SIZE        (10 * UNIT_ITEMS_COUNT) /* default window size is 10k */
+#define DEFAULT_WINDOW_SIZE        (10 * 1024) /* default window size is 10k */
 #define DEFAULT_SOCK_PER_CONN      1                       /* default socks per connection is 1 */
 
 /* Use this for string generation */
@@ -854,8 +854,7 @@ static void ms_print_setting()
   {
     fprintf(stdout, "execute number: %" PRId64 "\n", ms_setting.exec_num);
   }
-  fprintf(stdout, "windows size: %" PRId64 "k\n",
-          (int64_t)(ms_setting.win_size / 1024));
+  fprintf(stdout, "windows size: %" PRIdPTR "\n", ms_setting.win_size);
   fprintf(stdout, "set proportion: set_prop=%.2f\n",
           ms_setting.cmd_distr[CMD_SET].cmd_prop);
   fprintf(stdout, "get proportion: get_prop=%.2f\n",
